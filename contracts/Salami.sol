@@ -4,19 +4,24 @@ pragma solidity ^0.8.0;
 contract Salami {
     struct User {
         string name;
+        string tag ;
         address userAddress;
         bool registered;
     }
+    
     struct SalamiInfo {
         address from;
         address to;
         uint256 amount;
         string message;
         bool seen;
+        uint256 time;
     }
 
-    mapping(address => User) private users;
+    mapping(address => User) private users; 
+    address[] private userAddresses;
     mapping(address => mapping(address => SalamiInfo)) private salamiinfo;
+    mapping(address => address[]) private senders;
 
 
     // Get the account Details
@@ -24,30 +29,51 @@ contract Salami {
         return users[msg.sender];
     }
 
+    // Get all users
+    function getAllUsers() public view returns (User[] memory) {
+        User[] memory allUsers = new User[](userAddresses.length); // Create an array to store users
+
+        for (uint i = 0; i < userAddresses.length; i++) {
+            allUsers[i] = users[userAddresses[i]]; // Fetch each user from the mapping
+        }
+
+        return allUsers;
+    }
 
     // Register a user
-    function register(string memory _name) external {
+    function register(string memory _name,string memory _tag) external {
         require(!users[msg.sender].registered, "User already registered");
-        users[msg.sender] = User(_name, msg.sender , true);
+        users[msg.sender] = User(_name, string(abi.encodePacked("#", _tag)) , msg.sender , true);
+        userAddresses.push(msg.sender);
     }
 
 
     // Send money to another account
     function sendMoney(address payable _to, string memory message) external payable {
-        // require(users[msg.sender].registered, "You need to register first");
-        // require(users[_to].registered, "Recipient is not registered");
+        require(users[msg.sender].registered, "You need to register first");
+        require(users[_to].registered, "Recipient is not registered");
 
         // Transfer ETH to the recipient
         (bool success, ) = _to.call{value: msg.value}("");
         require(success, "Transfer failed.");
 
-        salamiinfo[_to][msg.sender] = SalamiInfo(msg.sender,_to, msg.value/10**18 , message,false);
+        salamiinfo[_to][msg.sender] = SalamiInfo(msg.sender,_to, msg.value/10**18 , message,false, block.timestamp);
+        senders[_to].push(msg.sender);
     }
 
     //Get salami message
-    function getSalamiMessage(address _to,address _from) external view returns (SalamiInfo memory){
-        return salamiinfo[_to][_from];
+    function getAllSalamiForTo(address _to) external view returns (SalamiInfo[] memory) {
+        uint256 count = senders[_to].length;
+        SalamiInfo[] memory salamiList = new SalamiInfo[](count);
+
+        for (uint256 i = 0; i < count; i++) {
+            address sender = senders[_to][i];
+            salamiList[i] = salamiinfo[_to][sender];
+        }
+
+        return salamiList;
     }
+
 
     // salami seen
     function salamiSeen(address _to,address _from) external {
