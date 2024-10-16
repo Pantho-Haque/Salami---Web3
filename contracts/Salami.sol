@@ -41,9 +41,9 @@ contract Salami {
     }
 
     // Register a user
-    function register(string memory _name,string memory _tag) external {
+    function register(string memory name,string memory tag) external {
         require(!users[msg.sender].registered, "User already registered");
-        users[msg.sender] = User(_name, string(abi.encodePacked("#", _tag)) , msg.sender , true);
+        users[msg.sender] = User(name, tag , msg.sender , true);
         userAddresses.push(msg.sender);
     }
 

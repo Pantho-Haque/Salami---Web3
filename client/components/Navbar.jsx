@@ -1,56 +1,45 @@
 "use client";
-import { buttonVariants, Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu } from "lucide-react";
-import { usePathname } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import MobileNav from "./mobile-nav";
+import { usePathname } from "next/navigation";
 import { ModeToggle } from "./theme-toggle";
 
 import { useRouter } from "next/navigation"; // To navigate to other pages
 
-import { getContractInstance } from "@/lib/getContractInstance";
+import { useAuthProvider } from "@/lib/Contextapi";
+import { useEffect, useState } from "react";
 
 export default function Navbar() {
+
   const router = useRouter();
   const pathname = usePathname();
 
-  const login = async () => {
-    // Check if MetaMask is available
-    if (
-      typeof window !== "undefined" &&
-      typeof window.ethereum !== "undefined"
-    ) {
-      try {
-        const contractInstance = await getContractInstance();
+  const { contract, account, provider ,userInfo,login} = useAuthProvider();
 
-        // Check if the user is registered by calling the contract's getUserDetails function
-        const userDetails = await contractInstance.getUserDetails();
-
-        if (userDetails.registered) {
-          // If registered, navigate to the profile page
-          router.push("/profile");
-        } else {
-          // If not registered, navigate to the signup page
-          router.push("/signup");
-        }
-      } catch (error) {
-        console.error("Error connecting to MetaMask:", error);
-      } finally {
-        // Disconnect from MetaMask (optional)
-        // provider.disconnect();
-      }
+  useEffect(() => {
+    if (account && contract && provider) {
+      console.log("Account:", account);
+      console.log("Contract:", contract);
+      console.log("Provider:", provider);
+      login();
+      
     } else {
-      console.error("MetaMask not detected. Please install MetaMask.");
+      const reloadInterval = setInterval(() => {
+        window.location.reload();
+      }, 2000);
+      return () => clearInterval(reloadInterval);
     }
-  };
+  }, [account, contract, provider]); // Depend on account, contract, and provider
 
+ 
 
   // If the current path is "/signup", don't render the navigation
-  if (pathname.startsWith('/signup')) {
-    return <nav className="flex justify-end items-center">
-      <ModeToggle />
-    </nav>;
+  if (pathname.startsWith("/signup")) {
+    return (
+      <nav className="flex justify-end items-center mb-20">
+        <ModeToggle />
+      </nav>
+    );
   }
 
   return (
@@ -60,9 +49,17 @@ export default function Navbar() {
       </div>
 
       <div className="buttons flex space-x-2 mr-2 justify-end w-full">
-        <Button variant="outline" className="" onClick={login}>
-          Login
-        </Button>
+        {userInfo ? (
+          <Button variant="outline" className="">
+            {userInfo.name}
+            {" #"}
+            {userInfo.tag}
+          </Button>
+        ) : (
+          <Button variant="outline" className="" onClick={login}>
+            Login
+          </Button>
+        )}
       </div>
 
       <ModeToggle />

@@ -1,55 +1,63 @@
 // app/signup/page.js
 "use client";
 
-import { useState } from "react";
-import { ethers } from "ethers";
 import { Button } from "@/components/ui/button";
-import { getContractInstance } from "@/lib/getContractInstance";
+import { useAuthProvider } from "@/lib/Contextapi";
+import { useEffect, useState } from "react";
+
+import { useRouter } from "next/navigation"; // To navigate to other pages
+
 
 export default function SignupPage() {
+
+  const router = useRouter();
+
+
   const [username, setUsername] = useState("");
   const [tag, setTag] = useState("");
   const [publicAddress, setPublicAddress] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Function to get public address using MetaMask
-  const connectWallet = async () => {
-    if (window.ethereum) {
-      try {
-        const accounts = await window.ethereum.request({
-          method: "eth_requestAccounts",
-        });
-        setPublicAddress(accounts[0]);
-      } catch (error) {
-        console.error("Error connecting to MetaMask:", error);
-      }
+  const { contract, account, provider } = useAuthProvider();
+
+  useEffect(() => {
+    if (account && contract && provider) {
+      console.log("Account:", account);
+      console.log("Contract:", contract);
+      console.log("Provider:", provider);
+      setPublicAddress(account);
     } else {
-      alert("Please install MetaMask!");
+      const reloadInterval = setInterval(() => {
+        window.location.reload();
+      }, 2000);
+      return () => clearInterval(reloadInterval);
     }
-  };
+  }, [account, contract, provider]);
 
   // Function to send the form data to the smart contract
   const registerUser = async (event) => {
     event.preventDefault();
-    if (!username || !tag || !publicAddress) {
+
+    if (!username || !tag) {
       alert("Please fill in all the fields and connect your wallet.");
       return;
     }
 
+    console.log("Username:", username, "Tag:", tag);
     setIsLoading(true);
-
     try {
-      // Replace with your smart contract address and ABI
-      const contractInstance = await getContractInstance();
-
-      // Call the smart contract function to register the user
-      const tx = await contractInstance.register(username, tag);
+      const tx = await contract.register(username, tag);
+      console.log("Transaction:", tx);
       await tx.wait(); // Wait for the transaction to be mined
-
       alert("User registered successfully!");
+      router.replace("/");
     } catch (error) {
       console.error("Error registering user:", error);
-      alert("There was an error registering the user.");
+      if (error.code === "ACTION_REJECTED") {
+        alert("User rejected the transaction.");
+      } else {
+        alert("There was an error registering the user.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -60,60 +68,40 @@ export default function SignupPage() {
       <div className="p-6 rounded-lg shadow-lg w-full max-w-md">
         <h1 className="text-2xl font-bold mb-6 text-center">Signup</h1>
 
-        <form onSubmit={registerUser}>
-          <div className="mb-4">
-            <label className="block text-sm font-bold mb-2">Username</label>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="shadow appearance-none border rounded w-full py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
-              placeholder="Enter your username"
-              required
-            />
-          </div>
+        <label className="block font-bold mb-2">Username</label>
+        <input
+          type="text"
+          value={username}
+          onChange={(e) => setUsername(e.target.value)}
+          className="shadow appearance-none border rounded w-full py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
+          placeholder="Enter your username"
+          required
+        />
 
-          <div className="mb-4">
-            <label className="block text-sm font-bold mb-2">
-              Preferred Tag
-            </label>
-            <input
-              type="text"
-              value={tag}
-              onChange={(e) => setTag(e.target.value)}
-              className="shadow appearance-none border rounded w-full py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
-              placeholder="Enter your preferred tag"
-              required
-            />
-          </div>
+        <label className="block font-bold my-2">Tag</label>
+        <input
+          type="text"
+          value={tag}
+          onChange={(e) => setTag(e.target.value)}
+          className="shadow appearance-none border rounded w-full py-2 px-3 leading-tight focus:outline-none focus:shadow-outline"
+          placeholder="Enter your tag"
+          required
+        />
 
-          <div className="mb-4">
-            <label className="block text-sm font-bold mb-2">
-              Public Address
-            </label>
-            {publicAddress ? (
-              <p className="py-2 px-3 rounded">{publicAddress}</p>
-            ) : (
-              <button
-                type="button"
-                onClick={connectWallet}
-                className=" py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-              >
-                Connect MetaMask
-              </button>
-            )}
-          </div>
+        <label className="block font-bold my-2">Address</label>
+        <p className="my-2 border-2 border-slate-500/30 text-center p-2 rounded">
+          {publicAddress}
+        </p>
 
-          <div className="flex items-center justify-center">
-            <Button
-              type="submit"
-              className="py-2 px-4 rounded focus:outline-none focus:shadow-outline"
-              disabled={isLoading}
-            >
-              {isLoading ? "Registering..." : "Register"}
-            </Button>
-          </div>
-        </form>
+        <div className="flex items-center justify-center">
+          <Button
+            onClick={registerUser}
+            className="py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            disabled={isLoading}
+          >
+            {isLoading ? "Registering..." : "Register"}
+          </Button>
+        </div>
       </div>
     </div>
   );
